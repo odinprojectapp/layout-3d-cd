@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Layout 3D CD</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --border: #1f1f1f; --text: #ececec; --muted: #c7c7c7; --dim: #8a8a8a;
+    --gold: #d1a33c; --ok: #4caf6a; --warn: #e0a020; --bad: #e0473f;
+    --A: #7cc24a; --B: #e8c93a; --C: #f0903a; --E: #6b9bd1; --X: #e0473f; --M: #8a5cc7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  header {
+    position: fixed; top: 0; left: 0; right: 0; height: 48px; display: flex; align-items: center; gap: 16px; padding: 0 16px;
+    background: rgba(10,10,10,.92); border-bottom: 1px solid var(--border); z-index: 5;
+  }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; }
+  header h1 span { color: var(--gold); }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--muted); border: 0; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--surface); color: var(--gold); }
+  .seg button:hover { color: var(--text); }
+  .kpis { display: flex; gap: 18px; margin-left: auto; color: var(--dim); white-space: nowrap; }
+  .kpis b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .demo { font-size: 10px; letter-spacing: .06em; color: var(--bg); background: var(--gold); padding: 1px 5px; border-radius: 3px; font-weight: 700; vertical-align: 1px; }
+
+  aside#list {
+    position: fixed; top: 60px; left: 12px; bottom: 12px; width: 250px; z-index: 4; display: flex; flex-direction: column;
+    background: rgba(20,20,20,.94); border: 1px solid var(--border); border-radius: 8px;
+  }
+  aside#list .hd { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--muted); display: flex; justify-content: space-between; }
+  aside#list ul { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; flex: 1; }
+  aside#list li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 5px 12px; cursor: pointer; }
+  aside#list li:hover, aside#list li.on { background: #1c1c1c; }
+  aside#list li.on { box-shadow: inset 2px 0 var(--gold); }
+  aside#list .n { color: var(--dim); font-variant-numeric: tabular-nums; text-align: right; }
+  aside#list .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .legend { padding: 10px 12px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  #card {
+    position: fixed; top: 60px; right: 12px; width: 330px; z-index: 4; background: rgba(20,20,20,.97); border: 1px solid var(--border);
+    border-top: 2px solid var(--gold); border-radius: 8px; padding: 14px 16px 16px; transform: translateX(360px); opacity: 0;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s;
+  }
+  #card.open { transform: none; opacity: 1; }
+  #card .x { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: var(--dim); font-size: 18px; cursor: pointer; }
+  #card .x:hover { color: var(--text); }
+  #card .kind { color: var(--gold); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  #card h2 { margin: 2px 0 12px; font-size: 17px; font-weight: 600; padding-right: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .stats div { background: var(--surface); padding: 8px 10px; }
+  .stats small { display: block; color: var(--dim); font-size: 11px; }
+  .stats b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+  .row b { color: var(--text); font-weight: 500; }
+  .mix { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 12px 0 6px; background: var(--border); }
+  .mixl { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 12px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar > div { height: 100%; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+  .note { color: var(--dim); font-size: 11px; margin-top: 10px; }
+
+  #tip { position: fixed; pointer-events: none; z-index: 6; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 3px 7px; font-size: 12px; display: none; white-space: nowrap; }
+  #hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 12px; z-index: 3; }
+  @media (max-width: 760px) {
+    aside#list { display: none; } .kpis { display: none; }
+    #card { left: 12px; right: 12px; width: auto; top: auto; bottom: 12px; transform: translateY(120%); }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<header>
+  <h1>Layout 3D <span>·</span> CD</h1>
+  <div class="seg" id="sites"></div>
+  <div class="seg" id="views">
+    <button data-v="3d" class="on">3D</button><button data-v="top">Planta</button><button data-v="reset">Reiniciar</button>
+  </div>
+  <div class="seg" id="simCtl">
+    <button data-s="toggle" class="on" title="Pausar / reanudar procesos">Procesos ⏸</button><button data-s="1" class="on">x1</button><button data-s="2">x2</button><button data-s="4">x4</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+</header>
+<aside id="list">
+  <div class="hd"><span>Sectores</span><span>5S mes <span class="demo">DEMO</span></span></div>
+  <ul id="sectors"></ul>
+  <div class="legend">
+    <span><i style="background:var(--A)"></i>Producto A</span><span><i style="background:var(--B)"></i>Producto B</span>
+    <span><i style="background:var(--C)"></i>Producto C</span><span><i style="background:var(--E)"></i>Envase</span>
+    <span><i style="background:var(--X)"></i>PT bloqueado</span><span><i style="background:var(--M)"></i>MTTO autónomo</span>
+  </div>
+</aside>
+<div id="card"><button class="x" title="Cerrar (Esc)">×</button><div id="cardBody"></div></div>
+<div id="tip"></div>
+<div id="hint">Arrastra para girar · rueda para acercar · clic en un bloque o en un sector</div>
+
+<script src="sites.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createSim } from './sim.js';
+
+const CLS = { A: '#7cc24a', B: '#e8c93a', C: '#f0903a', E: '#6b9bd1', X: '#e0473f', M: '#8a5cc7' };
+const CLS_NAME = { A: 'Producto A', B: 'Producto B', C: 'Producto C', E: 'Envase', X: 'PT bloqueado', M: 'MTTO autónomo' };
+const LEVEL = 7;            // alto de un nivel de estiba (unidades = puntos de Excel)
+const GOLD = new THREE.Color('#d1a33c'), WHITE = new THREE.Color('#ffffff');
+const fmt = n => n.toLocaleString('es-CO');
+const ease = t => 1 - Math.pow(1 - t, 3);
+
+// ---------- 5S de ejemplo (determinista por sector) ----------
+const EVAL = ['J. Pérez', 'M. Rodríguez', 'L. Gómez', 'A. Martínez', 'C. Herrera'];
+function demo5S(site, n) {
+  let s = [...(site + n)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => (s = (s * 1103515245 + 12345) >>> 0) / 2 ** 32;
+  const prog = 2 + Math.floor(rnd() * 5), cump = Math.max(0, prog - Math.floor(rnd() * rnd() * 4));
+  return { prog, cump, pct: Math.round(cump / prog * 100), eval: EVAL[Math.floor(rnd() * EVAL.length)] };
+}
+const pctColor = p => p >= 90 ? '#4caf6a' : p >= 70 ? '#e0a020' : '#e0473f';
+
+// ---------- render base ----------
+const host = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0a0a0a');
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 15, 20000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.47;
+controls.screenSpacePanning = false;
+
+scene.add(new THREE.AmbientLight('#ffffff', 0.85));
+const sun = new THREE.DirectionalLight('#ffffff', 1.1);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+// contorno dorado del bloque seleccionado
+const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: '#d1a33c' }));
+outline.visible = false; scene.add(outline);
+
+let sim = null, simOn = true, simSpeed = 1, cardTick = 0, PIN = 1, world = null, site = null, blocks = [], pins = [], selected = null, hovered = null, introT = 0;
+const tweens = [];
+function tween(dur, fn, done) { tweens.push({ t: 0, dur, fn, done }); }
+
+// ---------- construir un CD ----------
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+function build(s) {
+  if (world) { scene.remove(world); world.traverse(o => { o.material?.map?.dispose(); o.material?.dispose?.(); }); }
+  site = s; blocks = []; pins = []; selected = null; closeCard();
+  world = new THREE.Group(); scene.add(world);
+  const W = s.W, H = s.H, cx = W / 2, cz = H / 2;
+
+  const tex = new THREE.TextureLoader().load(s.floor);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: tex }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; world.add(floor);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(W + 24, 8, H + 24), new THREE.MeshLambertMaterial({ color: '#1a1a1a' }));
+  base.position.y = -6; world.add(base);
+
+  // estibas: un InstancedMesh por bloque, un cubo por nivel
+  const byBlock = s.blocks.map(() => []);
+  s.pallets.forEach(p => byBlock[p[6]].push(p));
+  const m4 = new THREE.Matrix4(), col = new THREE.Color();
+  s.blocks.forEach((b, i) => {
+    const list = byBlock[i], n = list.reduce((a, p) => a + p[4], 0);
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.75, metalness: 0.05 });
+    const mesh = new THREE.InstancedMesh(boxGeo, mat, n);
+    let k = 0;
+    for (const [x, y, w, h, lv, cls] of list) {
+      col.set(CLS[cls]);
+      for (let l = 0; l < lv; l++) {
+        m4.makeScale(w * 0.84, LEVEL * 0.84, h * 0.84);
+        m4.setPosition(x + w / 2 - cx, l * LEVEL + LEVEL / 2, y + h / 2 - cz);
+        mesh.setMatrixAt(k, m4); mesh.setColorAt(k, col); k++;
+      }
+    }
+    mesh.castShadow = mesh.receiveShadow = true;
+    const g = new THREE.Group(); g.add(mesh); world.add(g);
+    const [x0, y0, x1, y1] = b.bbox;
+    g.userData = { kind: 'block', data: b, center: new THREE.Vector3((x0 + x1) / 2 - cx, 0, (y0 + y1) / 2 - cz), lift: 0, glow: 0 };
+    mesh.userData.owner = g;
+    blocks.push(g);
+  });
+
+  // sectores: poste + disco con número coloreado por % 5S (tamaño relativo al plano)
+  PIN = Math.max(W, H) / 1000;
+  s.sectors.forEach(sec => {
+    sec.k = demo5S(s.id, sec.n);
+    const g = new THREE.Group();
+    g.position.set(sec.x - cx, 0, sec.y - cz);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * PIN, 1.2 * PIN, 60 * PIN, 8), new THREE.MeshBasicMaterial({ color: '#c7c7c7', transparent: true, opacity: 0.7 }));
+    pole.position.y = 30 * PIN; g.add(pole);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(12 * PIN, 16 * PIN, 40), new THREE.MeshBasicMaterial({ color: pctColor(sec.k.pct), transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.6; g.add(ring);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: pinTexture(sec.n, pctColor(sec.k.pct)), depthTest: false, sizeAttenuation: false }));
+    spr.scale.set(0.042, 0.042, 1); spr.position.y = 76 * PIN; spr.renderOrder = 10; g.add(spr);
+    g.userData = { kind: 'sector', data: sec, center: g.position.clone(), ring, spr, lift: 0 };
+    spr.userData.owner = g;
+    world.add(g); pins.push(g);
+  });
+
+  sim = createSim({ site: s, world });
+
+  const half = Math.max(W, H) / 2 + 40;
+  Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 10, far: half * 5 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.position.set(-half * 0.6, half * 1.6, half * 0.9);
+
+  renderKpis(); renderList(); view('3d', false);
+  introT = 0;
+}
+
+function pinTexture(n, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.beginPath(); x.arc(64, 64, 58, 0, Math.PI * 2); x.fillStyle = '#141414'; x.fill();
+  x.lineWidth = 10; x.strokeStyle = color; x.stroke();
+  x.fillStyle = '#ececec'; x.font = '600 56px Segoe UI, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(n, 64, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ---------- cámara ----------
+function flyTo(target, dist, polar, azim = 0, dur = 0.9) {
+  const p0 = camera.position.clone(), t0 = controls.target.clone();
+  const p1 = target.clone().add(new THREE.Vector3(Math.sin(azim) * Math.sin(polar), Math.cos(polar), Math.cos(azim) * Math.sin(polar)).multiplyScalar(dist));
+  tween(dur, k => { const e = ease(k); camera.position.lerpVectors(p0, p1, e); controls.target.lerpVectors(t0, target, e); });
+}
+function view(v, animate = true) {
+  const d = Math.max(site.W, site.H);
+  const target = new THREE.Vector3(0, 0, 0);
+  // distancia para que el plano completo quepa en pantalla vista desde arriba
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const fit = Math.max(site.H / (2 * tanH), site.W / (2 * tanH * camera.aspect)) * 1.12;
+  if (v === 'top') { animate ? flyTo(target, fit, 0.001) : place(target, fit, 0.001); }
+  else { const d3 = Math.max(d * 1.05, fit * 0.8); animate ? flyTo(target, d3, 0.85, 0) : place(target, d3, 0.85, 0); }
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'reset' ? '3d' : v)));
+}
+function place(target, dist, polar, azim = 0) {
+  camera.position.copy(target).add(new THREE.Vector3(Math.sin(azim) * Math.sin(polar), Math.cos(polar), Math.cos(azim) * Math.sin(polar)).multiplyScalar(dist));
+  controls.target.copy(target);
+}
+
+// ---------- selección ----------
+function select(g) {
+  if (selected === g) return;
+  selected = g;
+  const ud = g.userData;
+  if (ud.actor) {
+    const p = g.position.clone();
+    const k = ud.actor.kind;
+    flyTo(p, ['Camión', 'Vehículo', 'Barcaza'].includes(k) ? 460 : k === 'Montacargas' ? 200 : 150, 0.9, 0.35);
+    openActorCard(ud.actor);
+    document.querySelectorAll('#sectors li').forEach(li => li.classList.remove('on'));
+    return;
+  }
+  if (ud.kind === 'block') {
+    const [x0, y0, x1, y1] = ud.data.bbox;
+    flyTo(ud.center, Math.max(x1 - x0, y1 - y0) * 2.4 + 300, 0.95, 0.35);
+  } else {
+    flyTo(ud.center, Math.min(420 * PIN, 520), 0.9, 0.35);
+    ud.pulse = 0;
+  }
+  document.querySelectorAll('#sectors li').forEach(li => li.classList.toggle('on', ud.kind === 'sector' && +li.dataset.n === ud.data.n));
+  openCard(ud);
+}
+function deselect() {
+  selected = null; closeCard();
+  document.querySelectorAll('#sectors li').forEach(li => li.classList.remove('on'));
+}
+
+// ---------- tarjeta ----------
+const card = document.getElementById('card'), cardBody = document.getElementById('cardBody');
+function openCard(ud) {
+  const d = ud.data;
+  if (ud.kind === 'block') {
+    const total = Object.values(d.mix).reduce((a, b) => a + b, 0);
+    const segs = Object.entries(d.mix).sort((a, b) => b[1] - a[1]);
+    cardBody.innerHTML = `
+      <div class="kind">Bloque de almacenamiento · ${site.name}</div>
+      <h2>${d.name}</h2>
+      <div class="stats">
+        <div><small>Posiciones a piso</small><b>${fmt(d.pos)}</b></div>
+        <div><small>Capacidad estibas</small><b>${fmt(d.cap)}</b></div>
+        <div><small>Altura máx.</small><b>${d.hmax}</b></div>
+      </div>
+      <div class="mix">${segs.map(([c, n]) => `<div style="width:${n / total * 100}%;background:${CLS[c]}"></div>`).join('')}</div>
+      <div class="mixl">${segs.map(([c, n]) => `<span>${CLS_NAME[c]} <b>${n}</b></span>`).join('')}</div>
+      <div class="row" style="margin-top:10px"><span>Altura promedio</span><b>${(d.cap / d.pos).toFixed(1).replace('.', ',')} niveles</b></div>
+      <div class="note">Fuente: layout Excel actualizado 2026 (posiciones y altura de apilado por celda).</div>`;
+  } else {
+    const k = d.k;
+    cardBody.innerHTML = `
+      <div class="kind">Sector ${d.n} · ${site.name}</div>
+      <h2>${d.name}</h2>
+      <div class="stats">
+        <div><small>Programadas</small><b>${k.prog}</b></div>
+        <div><small>Cumplidas</small><b>${k.cump}</b></div>
+        <div><small>Cumplimiento</small><b style="color:${pctColor(k.pct)}">${k.pct}%</b></div>
+      </div>
+      <div class="bar"><div style="width:0;background:${pctColor(k.pct)}"></div></div>
+      ${(si => si ? `<div class="row" style="margin-top:10px"><span>Actividad</span><b>${si.act}</b></div><div class="row"><span>Personal / equipos</span><b style="text-align:right;max-width:190px">${si.crew || '—'}</b></div>` : '')(sim?.sectorInfo[d.n])}
+      <div class="row" style="margin-top:10px"><span>Último evaluador</span><b>${k.eval}</b></div>
+      <div class="row"><span>Periodo</span><b>Octubre 2026</b></div>
+      <div class="note"><span class="demo">DEMO</span> Datos de ejemplo. Se conectarán a la programación 5S de SharePoint (/api/5s/cumplimiento).</div>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => { cardBody.querySelector('.bar > div').style.width = k.pct + '%'; }));
+  }
+  card.classList.add('open');
+}
+function openActorCard(a) {
+  const rows = a.info?.() ?? [];
+  const bar = a.bar?.();
+  cardBody.innerHTML = `
+    <div class="kind">${a.kind} · ${site.name}</div>
+    <h2>${a.name}</h2>
+    <div class="row"><span>Proceso</span><b>${a.process}</b></div>
+    <div class="row"><span>Estado</span><b style="color:var(--gold)">${a.state || '—'}</b></div>
+    ${rows.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')}
+    ${bar != null ? `<div class="bar"><div style="width:${Math.round(bar * 100)}%;background:var(--gold)"></div></div>` : ''}
+    <div class="note"><span class="demo">SIMULACIÓN</span> Recorridos ilustrativos del proceso; la cámara sigue al vehículo.</div>`;
+  card.classList.add('open');
+}
+function closeCard() { card.classList.remove('open'); }
+card.querySelector('.x').onclick = deselect;
+addEventListener('keydown', e => { if (e.key === 'Escape') deselect(); });
+
+// ---------- UI ----------
+function renderKpis() {
+  const pos = site.pallets.length, cap = site.pallets.reduce((a, p) => a + p[4], 0);
+  const avg = Math.round(site.sectors.reduce((a, s) => a + s.k.pct, 0) / site.sectors.length);
+  document.getElementById('kpis').innerHTML =
+    `<span>Posiciones <b>${fmt(pos)}</b></span><span>Capacidad <b>${fmt(cap)}</b> estibas</span>` +
+    `<span>Bloques <b>${site.blocks.length}</b></span><span>5S promedio <b style="color:${pctColor(avg)}">${avg}%</b> <span class="demo">DEMO</span></span>`;
+}
+function renderList() {
+  const ul = document.getElementById('sectors');
+  ul.innerHTML = site.sectors.map(s => `<li data-n="${s.n}"><span class="n">${s.n}</span><span class="nm" title="${s.name}">${s.name}</span><span class="pct" style="color:${pctColor(s.k.pct)}">${s.k.pct}%</span></li>`).join('');
+  ul.querySelectorAll('li').forEach(li => li.onclick = () => select(pins.find(p => p.userData.data.n === +li.dataset.n)));
+}
+const sitesEl = document.getElementById('sites');
+sitesEl.innerHTML = SITES.map((s, i) => `<button data-i="${i}" class="${i ? '' : 'on'}">${s.name}</button>`).join('');
+sitesEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+  sitesEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  build(SITES[+b.dataset.i]);
+});
+document.querySelectorAll('#views button').forEach(b => b.onclick = () => { deselect(); view(b.dataset.v); });
+document.querySelectorAll('#simCtl button').forEach(b => b.onclick = () => {
+  if (b.dataset.s === 'toggle') { simOn = !simOn; b.classList.toggle('on', simOn); b.textContent = simOn ? 'Procesos ⏸' : 'Procesos ▶'; return; }
+  simSpeed = +b.dataset.s;
+  document.querySelectorAll('#simCtl button[data-s]:not([data-s="toggle"])').forEach(x => x.classList.toggle('on', x === b));
+});
+
+// ---------- puntero ----------
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = document.getElementById('tip');
+let downAt = null;
+function pick(e) {
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hits = [
+    ...ray.intersectObjects([...pins.map(p => p.userData.spr), ...blocks.map(b => b.children[0])], false),
+    ...(sim ? ray.intersectObjects(sim.pickables(), true) : []),
+  ].sort((a, b) => a.distance - b.distance);
+  // los marcadores de sector se dibujan encima de todo: tienen prioridad
+  const hit = hits.find(h => h.object.isSprite) || hits[0];
+  return hit ? hit.object.userData.owner : null;
+}
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.target !== renderer.domElement) return;
+  hovered = pick(e);
+  renderer.domElement.style.cursor = hovered ? 'pointer' : 'grab';
+  if (hovered) {
+    const d = hovered.userData.data;
+    const a = hovered.userData.actor;
+    tip.textContent = a ? `${a.name} · ${a.state}` :
+      hovered.userData.kind === 'block' ? `${d.name} · ${d.pos} pos.` : `${d.n}. ${d.name} · ${d.k.pct}%`;
+    tip.style.display = 'block'; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 12 + 'px';
+  } else tip.style.display = 'none';
+});
+renderer.domElement.addEventListener('pointerleave', () => { hovered = null; tip.style.display = 'none'; });
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const g = pick(e);
+  g ? select(g) : deselect();
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- bucle ----------
+const clock = new THREE.Clock();
+function loop() {
+  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i]; tw.t += raw; const k = Math.min(tw.t / tw.dur, 1); tw.fn(k);
+    if (k === 1) { tweens.splice(i, 1); tw.done?.(); }
+  }
+  introT += dt;
+  if (simOn && sim) sim.update(dt * simSpeed);
+  const act = selected?.userData.actor;
+  if (act) {
+    // seguir al vehículo y refrescar su tarjeta
+    if (!act.obj.visible) deselect();
+    else {
+      const delta = act.obj.position.clone().sub(controls.target).multiplyScalar(Math.min(1, dt * 3));
+      delta.y = 0; controls.target.add(delta); camera.position.add(delta);
+      if ((cardTick += dt) > 0.25) { cardTick = 0; openActorCard(act); }
+    }
+  }
+  outline.visible = false;
+  const maxR = Math.max(site.W, site.H) / 2;
+  for (const g of blocks) {
+    const ud = g.userData, isSel = selected === g, isHov = hovered === g;
+    // entrada: los bloques crecen desde el piso, del centro hacia afuera
+    const delay = ud.center.length() / maxR * 0.8;
+    const grow = ease(THREE.MathUtils.clamp((introT - delay) / 0.6, 0, 1));
+    ud.lift += ((isSel ? 16 : 0) - ud.lift) * Math.min(1, dt * 8);
+    ud.glow += ((isSel ? 0.45 : isHov ? 0.25 : 0) - ud.glow) * Math.min(1, dt * 10);
+    g.scale.y = Math.max(grow, 0.001); g.position.y = ud.lift;
+    const mat = g.children[0].material;
+    mat.emissive.copy(WHITE).multiplyScalar(ud.glow * 0.4);
+    if (isSel) {
+      const [x0, y0, x1, y1] = ud.data.bbox, hh = ud.data.hmax * LEVEL + 2;
+      outline.visible = true;
+      outline.scale.set(x1 - x0 + 4, hh, y1 - y0 + 4);
+      outline.position.set(ud.center.x, ud.lift + hh / 2, ud.center.z);
+    }
+    const dim = selected?.userData.kind === 'block' && !isSel ? 0.35 : 1;
+    mat.color.setScalar(mat.color.r + (dim - mat.color.r) * Math.min(1, dt * 8));
+  }
+  const t = clock.elapsedTime;
+  for (const p of pins) {
+    const ud = p.userData, isSel = selected === p, isHov = hovered === p;
+    ud.lift += ((isSel ? 22 : isHov ? 10 : 0) * PIN - ud.lift) * Math.min(1, dt * 8);
+    ud.spr.position.y = 76 * PIN + ud.lift + (isSel ? Math.sin(t * 4) * 3 * PIN : 0);
+    const s = isSel ? 1 + (t * 0.8 % 1) * 1.6 : 1;
+    ud.ring.scale.setScalar(s); ud.ring.material.opacity = isSel ? 0.85 * (1 - (t * 0.8 % 1)) : 0.85;
+    ud.spr.material.opacity = selected?.userData.kind === 'sector' && !isSel ? 0.45 : 1;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+build(SITES[0]);
+loop();
+</script>
+</body>
+</html>
